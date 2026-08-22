@@ -1052,12 +1052,57 @@
     }
 
     function createMatchRowHTML(m) {
-      const scoreRaw = String(m.score || '-').trim();
-      const isZeroZero = scoreRaw === '0:0' || scoreRaw === '0-0' || scoreRaw === '0 : 0' || scoreRaw === '0 - 0';
+      let scoreRaw = String(m.score || '-').trim();
       
-      const scoreStyleClass = isZeroZero
-        ? 'bg-black border-neutral-700 text-neutral-400'
-        : 'bg-white border-white text-black font-black';
+      // Prüfen, ob die SVG auswärts spielt
+      const isAway = /SVG/i.test(m.away || '') && !/SVG/i.test(m.home || '');
+      
+      // Wenn SVG auswärts spielt: Zahlen vor und nach dem Doppelpunkt/Trennzeichen tauschen
+      if (isAway && scoreRaw.includes(':')) {
+        const parts = scoreRaw.split(':');
+        if (parts.length === 2) {
+          scoreRaw = `${parts[1].trim()}:${parts[0].trim()}`;
+        }
+      } else if (isAway && scoreRaw.includes('-')) {
+        const parts = scoreRaw.split('-');
+        if (parts.length === 2) {
+          scoreRaw = `${parts[1].trim()}:${parts[0].trim()}`;
+        }
+      }
+
+      // Score parsen (unterstützt Doppelpunkt und Bindestrich als Trenner)
+      const scoreParts = scoreRaw.split(/[:\-]/).map(s => parseInt(s.trim(), 10));
+      
+      let displayScore = scoreRaw;
+      let scoreStyleClass = 'bg-black border-neutral-700 text-neutral-400';
+
+      if (scoreParts.length === 2 && !isNaN(scoreParts[0]) && !isNaN(scoreParts[1])) {
+        let svgScore = scoreParts[0];
+        let opponentScore = scoreParts[1];
+
+        // Ergebnis im Format "SVG-Punkte : Gegner-Punkte" anzeigen
+        displayScore = `${svgScore}:${opponentScore}`;
+
+        // Standard-Farbe für ein ausgetragenes Spiel
+        scoreStyleClass = 'bg-white border-white text-black font-black';
+
+        // Summe ermitteln
+        const sum = svgScore + opponentScore;
+
+        // Ab einer Summe >= 12 dezente farbliche Hervorhebung aktivieren (Sieg, Unentschieden, Niederlage der SVG)
+        if (sum >= 12) {
+          if (svgScore > opponentScore) {
+            // Sieg SVG (Dezentes Grün)
+            scoreStyleClass = 'bg-emerald-950/60 border-emerald-500/40 text-emerald-400 font-black';
+          } else if (svgScore === opponentScore) {
+            // Unentschieden (Dezentes Gelb/Amber)
+            scoreStyleClass = 'bg-amber-950/60 border-amber-500/40 text-amber-400 font-black';
+          } else {
+            // Niederlage SVG (Dezentes Rot)
+            scoreStyleClass = 'bg-rose-950/60 border-rose-500/40 text-rose-400 font-black';
+          }
+        }
+      }
 
       return `
         <tr class="hover:bg-neutral-900/60 transition">
@@ -1068,8 +1113,8 @@
           <td class="px-6 py-4 text-white font-medium">${getTeamLink(m.home)}</td>
           <td class="px-6 py-4 text-white font-medium">${getTeamLink(m.away)}</td>
           <td class="px-6 py-4 text-center">
-            <span class="inline-block px-3 py-1 rounded-lg border font-extrabold text-sm ${scoreStyleClass}">
-              ${m.score || '-'}
+            <span class="inline-block px-3 py-1 rounded-lg border text-sm ${scoreStyleClass}">
+              ${displayScore}
             </span>
           </td>
         </tr>
